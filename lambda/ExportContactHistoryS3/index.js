@@ -8,7 +8,7 @@
 const AWS = require('aws-sdk') //Requires atleast VERSION 2.8x
 const S3 = new AWS.S3()
 //Read and initialize variables from the lambda environment. The lambda environment is set by CDK using env.json file 
-const { workbookId, contactHistoryTableName, s3bucket, crossAcountHoneycodeRoleArn } = process.env
+const { workbookId, TableName, s3bucket, crossAcountHoneycodeRoleArn } = process.env
 //Convert from JSON to CSV
 const stringify = require('csv-stringify/lib/sync')
 //Alternative stringify implementation to convert from Honeycode rows JSON array to Key:Value JSON format
@@ -48,7 +48,7 @@ exports.handler = async () => {
         }, {})
         //Get Contact History columnIds
         const { tableColumns } = await HC.listTableColumns({
-            workbookId, tableId: tableIds[contactHistoryTableName]
+            workbookId, tableId: tableIds[TableName]
         }).promise()
         //Convert to array of column names
         const columns = tableColumns.map(column => ({ key: column.tableColumnName }))
@@ -60,9 +60,9 @@ exports.handler = async () => {
         do {
             //Get contact history rows that have not been exported already
             const results = await HC.queryTableRows({
-                workbookId, tableId: tableIds[contactHistoryTableName],
+                workbookId, tableId: tableIds[TableName],
                 filterFormula: {
-                    formula: `=FILTER(${contactHistoryTableName}, "${contactHistoryTableName}[Exported] = %","")`
+                    formula: `=FILTER(${TableName}, "${TableName}[Exported] = %","")`
                 },
                 nextToken
             }).promise()
@@ -93,7 +93,7 @@ exports.handler = async () => {
                 await saveToS3(stringify(rows, { header: true, columns }))
                 //Update exported date in table
                 const { failedBatchItems } = await HC.batchUpdateTableRows({
-                    workbookId, tableId: tableIds[contactHistoryTableName], rowsToUpdate
+                    workbookId, tableId: tableIds[TableName], rowsToUpdate
                 }).promise()
                 if (failedBatchItems) {
                     console.error('Failed to update export date', JSON.stringify(failedBatchItems, null, 2))
